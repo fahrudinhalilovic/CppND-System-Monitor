@@ -6,6 +6,7 @@
 #include <string>
 
 namespace LinuxParser {
+
 // Paths
 const std::string kProcDirectory{"/proc/"};
 const std::string kCmdlineFilename{"/cmdline"};
