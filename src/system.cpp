@@ -51,8 +51,40 @@ std::string System::Kernel() {
     return kernel;
 }
 
-// TODO: Return the system's memory utilization
-float System::MemoryUtilization() { return 0.0; }
+float System::MemoryUtilization() {
+    const auto MemTotal { "MemTotal:" };
+    const auto MemFree { "MemFree:" };
+
+    const std::filesystem::path memInfoPath { "/proc/meminfo" };
+    if ( !std::filesystem::is_regular_file(memInfoPath) ) {
+        throw std::runtime_error { "Missing file: " + memInfoPath.string() };
+    }
+
+    std::ifstream input { memInfoPath };
+    if ( !input ) {
+        throw std::runtime_error { "There was en error while opening input stream!" };
+    }
+
+    std::string line;
+    float memTotal = 0;
+    float memFree = 0;
+
+    while ( std::getline(input, line) ) {
+        std::stringstream sstream { line };
+        std::string property;
+        float val;
+        sstream >> property >> val;
+        if ( property == MemTotal ) {
+            memTotal = val;
+        }
+        else if ( property == MemFree ) {
+            memFree = val;
+        }
+    }
+
+    return memTotal - memFree;
+
+ }
 
 std::string System::OperatingSystem() {
     const std::filesystem::path OSInfoPath { "/etc/os-release" };
