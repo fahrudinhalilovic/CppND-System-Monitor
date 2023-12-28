@@ -10,7 +10,7 @@ std::string LinuxParser::OperatingSystem() {
   std::string line;
   std::string key;
   std::string value;
-  std::ifstream filestream(kOSPath);
+  std::ifstream filestream { osPath };
   if (filestream.is_open()) {
     while (std::getline(filestream, line)) {
       std::replace(line.begin(), line.end(), ' ', '_');
@@ -31,7 +31,7 @@ std::string LinuxParser::OperatingSystem() {
 std::string LinuxParser::Kernel() {
   std::string os, kernel, version;
   std::string line;
-  std::ifstream stream(kProcDirectory + kVersionFilename);
+  std::ifstream stream {versionPath};
   if (stream.is_open()) {
     std::getline(stream, line);
     std::istringstream linestream(line);
@@ -41,10 +41,9 @@ std::string LinuxParser::Kernel() {
 }
 
 std::vector<int> LinuxParser::Pids() {
-  std::filesystem::path procDirectory{kProcDirectory};
   std::vector<int> pids;
 
-  std::filesystem::directory_iterator dirEntry{procDirectory};
+  std::filesystem::directory_iterator dirEntry{proc};
 
   for (const auto& entry : dirEntry) {
     if (!entry.is_directory()) {
@@ -64,7 +63,6 @@ float LinuxParser::MemoryUtilization() {
   const auto MemTotal{"MemTotal:"};
   const auto MemFree{"MemFree:"};
 
-  const std::filesystem::path memInfoPath{"/proc/meminfo"};
   if (!std::filesystem::is_regular_file(memInfoPath)) {
     throw std::runtime_error{"Missing file: " + memInfoPath.string()};
   }
@@ -95,8 +93,6 @@ float LinuxParser::MemoryUtilization() {
 
 // TODO: Read and return the system uptime
 long LinuxParser::UpTime() {
-  const std::filesystem::path upTimePath{"/proc/uptime"};
-
   if (!std::filesystem::is_regular_file(upTimePath)) {
     throw std::runtime_error{"Missing file " + upTimePath.string()};
   }
@@ -106,23 +102,60 @@ long LinuxParser::UpTime() {
     throw std::runtime_error{"There was en error while opening input stream!"};
   }
 
-  long int upTime = 0u;
+  long upTime = 0u;
   input >> upTime;
   return upTime;
 }
 
-// TODO: Read and return the number of jiffies for the system
-long LinuxParser::Jiffies() { return 0; }
+struct OSJiffies {
+  long user;
+  long nice;
+  long system;
+  long idle;
+  long iowait;
+  long irq;
+  long softirg;
+  long steal;
+  long guest;
+  long guestNice;
+
+  long Idle() { return idle + iowait; }
+  long NonIdle() { return user + nice + system + irq + softirg + steal; }
+  long Total() { return Idle() + NonIdle(); }
+};
+
+OSJiffies getOSJiffies()
+{
+  std::ifstream input { LinuxParser::statPath };
+  if ( !input ) {
+    throw std::runtime_error { "There was en error while opening input stream!" };
+  }
+
+  OSJiffies j;
+
+  const auto cpu { "cpu" };
+  std::string line;
+  while ( std::getline(input, line) ) {
+    std::string desc;
+    std::istringstream sstream { line };
+    sstream >> desc;
+    if ( desc == cpu ) {
+      sstream >> j.user >> j.nice >> j.system >> j.idle >> j.iowait >> j.irq >> j.softirg >> j.steal >> j.guest >> j.guestNice;
+    }
+  }
+
+  return j;
+}
+
+long LinuxParser::Jiffies() { return getOSJiffies().Total(); }
 
 // TODO: Read and return the number of active jiffies for a PID
 // REMOVE: [[maybe_unused]] once you define the function
 long LinuxParser::ActiveJiffies(int pid [[maybe_unused]]) { return 0; }
 
-// TODO: Read and return the number of active jiffies for the system
-long LinuxParser::ActiveJiffies() { return 0; }
+long LinuxParser::ActiveJiffies() { return getOSJiffies().NonIdle(); }
 
-// TODO: Read and return the number of idle jiffies for the system
-long LinuxParser::IdleJiffies() { return 0; }
+long LinuxParser::IdleJiffies() { return getOSJiffies().Idle(); }
 
 // TODO: Read and return CPU utilization
 std::vector<std::string> LinuxParser::CpuUtilization() { return {}; }
@@ -133,16 +166,10 @@ struct ProcessesInfo {
 };
 
 ProcessesInfo parseProcessesFile() {
-  const std::filesystem::path processesPath{"/proc/stat"};
-
-  if (!std::filesystem::is_regular_file(processesPath)) {
-    throw std::runtime_error{"Missing file " + processesPath.string()};
-  }
-
   const auto allProcess = "processes";
   const auto runningProcesses = "procs_running";
 
-  std::ifstream input{processesPath};
+  std::ifstream input{LinuxParser::statPath};
   if (!input) {
     throw std::runtime_error{"There was en error while opening input stream!"};
   }
@@ -165,9 +192,9 @@ ProcessesInfo parseProcessesFile() {
   return procInfo;
 }
 
-int LinuxParser::TotalProcesses() { return parseProcessesFile().running; }
+int LinuxParser::TotalProcesses() { return parseProcessesFile().all; }
 
-int LinuxParser::RunningProcesses() { return parseProcessesFile().all; }
+int LinuxParser::RunningProcesses() { return parseProcessesFile().running; }
 
 // TODO: Read and return the command associated with a process
 // REMOVE: [[maybe_unused]] once you define the function

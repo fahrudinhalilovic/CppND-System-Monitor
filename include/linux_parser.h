@@ -4,20 +4,21 @@
 #include <fstream>
 #include <regex>
 #include <string>
+#include <filesystem>
 
 namespace LinuxParser {
 
 // Paths
-const std::string kProcDirectory{"/proc/"};
-const std::string kCmdlineFilename{"/cmdline"};
-const std::string kCpuinfoFilename{"/cpuinfo"};
-const std::string kStatusFilename{"/status"};
-const std::string kStatFilename{"/stat"};
-const std::string kUptimeFilename{"/uptime"};
-const std::string kMeminfoFilename{"/meminfo"};
-const std::string kVersionFilename{"/version"};
-const std::string kOSPath{"/etc/os-release"};
-const std::string kPasswordPath{"/etc/passwd"};
+const std::filesystem::path proc{"/proc/"};
+const std::filesystem::path cmdPath{proc / "cmdline"};
+const std::filesystem::path cpuInfoPath{proc / "cpuinfo"};
+const std::filesystem::path statusPath{ proc / "status"};
+const std::filesystem::path statPath{ proc / "stat"};
+const std::filesystem::path upTimePath{proc / "uptime"};
+const std::filesystem::path memInfoPath{proc / "meminfo"};
+const std::filesystem::path versionPath{proc / "version"};
+const std::filesystem::path osPath{"/etc/os-release"};
+const std::filesystem::path passwordPath{"/etc/passwd"};
 
 // System
 float MemoryUtilization();
