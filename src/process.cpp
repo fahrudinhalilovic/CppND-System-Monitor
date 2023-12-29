@@ -7,30 +7,41 @@
 #include <string>
 #include <vector>
 
-using std::string;
-using std::to_string;
-using std::vector;
+#include "linux_parser.h"
 
-// TODO: Return this process's ID
-int Process::Pid() { return 0; }
+Process::Process(int pid) : pid_{pid} {}
 
-// TODO: Return this process's CPU utilization
-float Process::CpuUtilization() { return 0; }
+int Process::Pid() const { return pid_; }
 
-// TODO: Return the command that generated this process
-string Process::Command() { return string(); }
+float Process::CpuUtilization() const {
+  const float totalTime =
+      LinuxParser::ActiveJiffies(pid_) / sysconf(_SC_CLK_TCK);
 
-// TODO: Return this process's memory utilization
-string Process::Ram() { return string(); }
+  const float seconds = LinuxParser::UpTime() - UpTime();
 
-// TODO: Return the user (name) that generated this process
-string Process::User() { return string(); }
+  return 100 * (totalTime / seconds);
+}
 
-// TODO: Return the age of this process (in seconds)
-long int Process::UpTime() { return 0; }
+std::string Process::Command() const { return LinuxParser::Command(pid_); }
 
-// TODO: Overload the "less than" comparison operator for Process objects
-// REMOVE: [[maybe_unused]] once you define the function
-bool Process::operator<(Process const& a [[maybe_unused]]) const {
-  return true;
+std::string Process::Ram() const { return LinuxParser::Ram(pid_); }
+
+std::string Process::User() const { return LinuxParser::User(pid_); }
+
+long int Process::UpTime() const {
+  const auto startTime = LinuxParser::UpTime(pid_);
+  return startTime / sysconf(_SC_CLK_TCK);
+}
+
+bool Process::operator<(Process const& other) const {
+  if (CpuUtilization() != other.CpuUtilization()) {
+    // sort them according to the CPU utilization
+    return CpuUtilization() < other.CpuUtilization();
+  } else if (Ram() != other.Ram()) {
+    // then try to sort according to the RAM utilization
+    return Ram() < other.Ram();
+  } else {
+    // use PID as a fallback option
+    return Pid() < other.Pid();
+  }
 }

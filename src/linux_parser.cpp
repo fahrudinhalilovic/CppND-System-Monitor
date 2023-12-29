@@ -1,16 +1,15 @@
 #include "linux_parser.h"
 
 #include <algorithm>
-#include <filesystem>
+#include <cassert>
+#include <fstream>
 #include <sstream>
-#include <string>
-#include <vector>
 
 std::string LinuxParser::OperatingSystem() {
   std::string line;
   std::string key;
   std::string value;
-  std::ifstream filestream { osPath };
+  std::ifstream filestream{osPath};
   if (filestream.is_open()) {
     while (std::getline(filestream, line)) {
       std::replace(line.begin(), line.end(), ' ', '_');
@@ -31,7 +30,7 @@ std::string LinuxParser::OperatingSystem() {
 std::string LinuxParser::Kernel() {
   std::string os, kernel, version;
   std::string line;
-  std::ifstream stream {versionPath};
+  std::ifstream stream{versionPath};
   if (stream.is_open()) {
     std::getline(stream, line);
     std::istringstream linestream(line);
@@ -63,10 +62,6 @@ float LinuxParser::MemoryUtilization() {
   const auto MemTotal{"MemTotal:"};
   const auto MemFree{"MemFree:"};
 
-  if (!std::filesystem::is_regular_file(memInfoPath)) {
-    throw std::runtime_error{"Missing file: " + memInfoPath.string()};
-  }
-
   std::ifstream input{memInfoPath};
   if (!input) {
     throw std::runtime_error{"There was en error while opening input stream!"};
@@ -77,10 +72,10 @@ float LinuxParser::MemoryUtilization() {
   float memFree = 0;
 
   while (std::getline(input, line)) {
-    std::stringstream sstream{line};
+    std::istringstream linestream{line};
     std::string property;
     float val;
-    sstream >> property >> val;
+    linestream >> property >> val;
     if (property == MemTotal) {
       memTotal = val;
     } else if (property == MemFree) {
@@ -91,12 +86,7 @@ float LinuxParser::MemoryUtilization() {
   return memTotal - memFree;
 }
 
-// TODO: Read and return the system uptime
 long LinuxParser::UpTime() {
-  if (!std::filesystem::is_regular_file(upTimePath)) {
-    throw std::runtime_error{"Missing file " + upTimePath.string()};
-  }
-
   std::ifstream input{upTimePath};
   if (!input) {
     throw std::runtime_error{"There was en error while opening input stream!"};
@@ -108,6 +98,21 @@ long LinuxParser::UpTime() {
 }
 
 struct OSJiffies {
+  explicit OSJiffies(const std::vector<std::string>& input) {
+    assert(input.size() == 10);
+
+    user = std::stol(input[0]);
+    nice = std::stol(input[1]);
+    system = std::stol(input[2]);
+    idle = std::stol(input[3]);
+    iowait = std::stol(input[4]);
+    irq = std::stol(input[5]);
+    softirg = std::stol(input[6]);
+    steal = std::stol(input[7]);
+    guest = std::stol(input[8]);
+    guestNice = std::stol(input[9]);
+  }
+
   long user;
   long nice;
   long system;
@@ -124,41 +129,81 @@ struct OSJiffies {
   long Total() { return Idle() + NonIdle(); }
 };
 
-OSJiffies getOSJiffies()
-{
-  std::ifstream input { LinuxParser::statPath };
-  if ( !input ) {
-    throw std::runtime_error { "There was en error while opening input stream!" };
+long LinuxParser::Jiffies() {
+  OSJiffies osJiffies{CpuUtilization()};
+  return osJiffies.Total();
+}
+
+long LinuxParser::ActiveJiffies(int pid) {
+  const auto statPath = proc / std::to_string(pid) / statName;
+
+  std::ifstream input{statPath};
+  if (!input) {
+    throw std::runtime_error{"There was en error while opening input stream!"};
   }
 
-  OSJiffies j;
-
-  const auto cpu { "cpu" };
   std::string line;
-  while ( std::getline(input, line) ) {
-    std::string desc;
-    std::istringstream sstream { line };
-    sstream >> desc;
-    if ( desc == cpu ) {
-      sstream >> j.user >> j.nice >> j.system >> j.idle >> j.iowait >> j.irq >> j.softirg >> j.steal >> j.guest >> j.guestNice;
+  std::getline(input, line);
+  std::istringstream linestream{line};
+
+  long uTime;
+  long sTime;
+  long cuTime;
+  long csTime;
+  long startTime;
+
+  for (auto idx = 1u; idx <= 17; ++idx) {
+    std::string val;
+    linestream >> val;
+    if (idx == 14) {
+      uTime = std::stol(val);
+    } else if (idx == 15) {
+      sTime = std::stol(val);
+    } else if (idx == 16) {
+      cuTime = std::stol(val);
+    } else if (idx == 17) {
+      csTime = std::stol(val);
     }
   }
 
-  return j;
+  return uTime + sTime + cuTime + csTime;
 }
 
-long LinuxParser::Jiffies() { return getOSJiffies().Total(); }
+long LinuxParser::ActiveJiffies() {
+  OSJiffies osJiffies{CpuUtilization()};
+  return osJiffies.NonIdle();
+}
 
-// TODO: Read and return the number of active jiffies for a PID
-// REMOVE: [[maybe_unused]] once you define the function
-long LinuxParser::ActiveJiffies(int pid [[maybe_unused]]) { return 0; }
+long LinuxParser::IdleJiffies() {
+  OSJiffies osJiffies{CpuUtilization()};
+  return osJiffies.Idle();
+}
 
-long LinuxParser::ActiveJiffies() { return getOSJiffies().NonIdle(); }
+std::vector<std::string> LinuxParser::CpuUtilization() {
+  const auto statPath = LinuxParser::proc / LinuxParser::statName;
+  std::ifstream input{statPath};
+  if (!input) {
+    throw std::runtime_error{"There was en error while opening input stream!"};
+  }
 
-long LinuxParser::IdleJiffies() { return getOSJiffies().Idle(); }
+  const auto numberOfProps = 10u;
+  std::vector<std::string> res{numberOfProps};
+  const auto cpu{"cpu"};
 
-// TODO: Read and return CPU utilization
-std::vector<std::string> LinuxParser::CpuUtilization() { return {}; }
+  std::string line;
+  while (std::getline(input, line)) {
+    std::string desc;
+    std::istringstream linestream{line};
+    linestream >> desc;
+    if (desc == cpu) {
+      for (auto idx = 0u; idx < numberOfProps; ++idx) {
+        linestream >> res[idx];
+      }
+    }
+  }
+
+  return res;
+}
 
 struct ProcessesInfo {
   size_t all = 0;
@@ -169,7 +214,8 @@ ProcessesInfo parseProcessesFile() {
   const auto allProcess = "processes";
   const auto runningProcesses = "procs_running";
 
-  std::ifstream input{LinuxParser::statPath};
+  const auto statPath = LinuxParser::proc / LinuxParser::statName;
+  std::ifstream input{statPath};
   if (!input) {
     throw std::runtime_error{"There was en error while opening input stream!"};
   }
@@ -179,13 +225,13 @@ ProcessesInfo parseProcessesFile() {
   std::string line;
   while (std::getline(input, line)) {
     std::string propertyName;
-    std::stringstream sstream{line};
-    sstream >> propertyName;
+    std::istringstream linestream{line};
+    linestream >> propertyName;
 
     if (propertyName == allProcess) {
-      sstream >> procInfo.all;
+      linestream >> procInfo.all;
     } else if (propertyName == runningProcesses) {
-      sstream >> procInfo.running;
+      linestream >> procInfo.running;
     }
   }
 
@@ -196,26 +242,99 @@ int LinuxParser::TotalProcesses() { return parseProcessesFile().all; }
 
 int LinuxParser::RunningProcesses() { return parseProcessesFile().running; }
 
-// TODO: Read and return the command associated with a process
-// REMOVE: [[maybe_unused]] once you define the function
-std::string LinuxParser::Command(int pid [[maybe_unused]]) {
-  return std::string();
+std::string LinuxParser::Command(int pid) {
+  const auto cmdPath = proc / std::to_string(pid) / cmdName;
+  std::ifstream input{cmdPath};
+  if (!input) {
+    throw std::runtime_error{"There was en error while opening input stream!"};
+  }
+
+  std::string cmd;
+  std::getline(input, cmd);
+  return cmd;
 }
 
-// TODO: Read and return the memory used by a process
-// REMOVE: [[maybe_unused]] once you define the function
-std::string LinuxParser::Ram(int pid [[maybe_unused]]) { return std::string(); }
+std::string parseProcessStatusFile(int pid, std::string property) {
+  const auto statusPath{LinuxParser::proc / std::to_string(pid) /
+                        LinuxParser::statusName};
+  std::ifstream input{statusPath};
+  if (!input) {
+    throw std::runtime_error{"There was en error while opening input stream!"};
+  }
 
-// TODO: Read and return the user ID associated with a process
-// REMOVE: [[maybe_unused]] once you define the function
-std::string LinuxParser::Uid(int pid [[maybe_unused]]) { return std::string(); }
+  std::string line;
+  std::string val;
 
-// TODO: Read and return the user associated with a process
-// REMOVE: [[maybe_unused]] once you define the function
-std::string LinuxParser::User(int pid [[maybe_unused]]) {
-  return std::string();
+  while (std::getline(input, line)) {
+    std::istringstream linestream{line};
+    std::string propertyName;
+    linestream >> propertyName;
+    if (propertyName == property) {
+      linestream >> val;
+      break;
+    }
+  }
+
+  return val;
 }
 
-// TODO: Read and return the uptime of a process
-// REMOVE: [[maybe_unused]] once you define the function
-long LinuxParser::UpTime(int pid [[maybe_unused]]) { return 0; }
+std::string LinuxParser::Ram(int pid) {
+  const auto ramInKB = parseProcessStatusFile(pid, "VmSize:");
+  if (ramInKB.empty()) {
+    return "0";
+  }
+
+  const auto ram = std::stoi(ramInKB);
+  return std::to_string(ram / 1024);
+}
+
+std::string LinuxParser::Uid(int pid) {
+  return parseProcessStatusFile(pid, "Uid:");
+}
+
+std::string LinuxParser::User(int pid) {
+  const auto uid = Uid(pid);
+
+  std::ifstream input{passwordPath};
+  if (!input) {
+    throw std::runtime_error{"There was en error while opening input stream!"};
+  }
+
+  std::string line;
+  while (std::getline(input, line)) {
+    std::replace(std::begin(line), std::end(line), ':', ' ');
+    std::istringstream linestream{line};
+    std::string username;
+    std::string passwd;
+    std::string tempUid;
+    linestream >> username >> passwd >> tempUid;
+    if (uid == tempUid) {
+      return username;
+    }
+  }
+
+  return std::string{};
+}
+
+long LinuxParser::UpTime(int pid) {
+  const auto propertyPos = 22u;
+  const auto upTimePath = proc / std::to_string(pid) / LinuxParser::statName;
+
+  std::ifstream input{upTimePath};
+  if (!input) {
+    throw std::runtime_error{"There was en error while opening input stream!"};
+  }
+
+  std::string line;
+  std::getline(input, line);
+  std::istringstream linestream{line};
+
+  for (auto idx = 1u; idx < propertyPos; ++idx) {
+    std::string val;
+    linestream >> val;
+  }
+
+  long startTime;
+  linestream >> startTime;
+  return startTime;
+}

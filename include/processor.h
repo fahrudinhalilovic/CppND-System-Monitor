@@ -6,8 +6,8 @@ class Processor {
   float Utilization();
 
  private:
- float prevTotalUtilization = 0;
- float prevIdleUtilization = 0;
+  float prevTotalUtilization = 0;
+  float prevIdleUtilization = 0;
 };
 
 #endif

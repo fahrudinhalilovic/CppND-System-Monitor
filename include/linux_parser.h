@@ -1,19 +1,18 @@
 #ifndef SYSTEM_PARSER_H
 #define SYSTEM_PARSER_H
 
-#include <fstream>
-#include <regex>
-#include <string>
 #include <filesystem>
+#include <string>
+#include <vector>
 
 namespace LinuxParser {
 
 // Paths
 const std::filesystem::path proc{"/proc/"};
-const std::filesystem::path cmdPath{proc / "cmdline"};
+const std::string cmdName{"cmdline"};
 const std::filesystem::path cpuInfoPath{proc / "cpuinfo"};
-const std::filesystem::path statusPath{ proc / "status"};
-const std::filesystem::path statPath{ proc / "stat"};
+const std::string statusName{"status"};
+const std::string statName{"stat"};
 const std::filesystem::path upTimePath{proc / "uptime"};
 const std::filesystem::path memInfoPath{proc / "meminfo"};
 const std::filesystem::path versionPath{proc / "version"};
@@ -30,7 +29,7 @@ std::string OperatingSystem();
 std::string Kernel();
 
 // CPU
-enum CPUStates {
+enum class CPUStates {
   kUser_ = 0,
   kNice_,
   kSystem_,

@@ -23,6 +23,13 @@ You need to properly format the uptime. Refer to the comments mentioned in
 format. cpp for formatting the uptime.
 */
 
+System::System() {
+  const auto pids = LinuxParser::Pids();
+  for (const auto& pid : pids) {
+    processes_.emplace_back(Process{pid});
+  }
+}
+
 Processor& System::Cpu() { return cpu_; }
 
 std::vector<Process>& System::Processes() { return processes_; }
@@ -31,37 +38,7 @@ std::string System::Kernel() { return LinuxParser::Kernel(); }
 
 float System::MemoryUtilization() { return LinuxParser::MemoryUtilization(); }
 
-std::string System::OperatingSystem() {
-  const std::filesystem::path OSInfoPath{"/etc/os-release"};
-
-  if (!std::filesystem::is_regular_file(OSInfoPath)) {
-    throw std::runtime_error{"Missing file " + OSInfoPath.string()};
-  }
-
-  const auto propertyName{"PRETTY_NAME"};
-
-  std::ifstream input{OSInfoPath};
-  if (!input) {
-    throw std::runtime_error{"There was en error while opening input stream!"};
-  }
-
-  std::string line;
-
-  while (std::getline(input, line)) {
-    if (line.find(propertyName) != std::string::npos) {
-      const auto separator = '"';
-      if (std::count(std::begin(line), std::end(line), separator) != 2) {
-        throw std::runtime_error{"Expected 2 \" in the line: " + line};
-      }
-
-      const auto start = line.find(separator);
-      const auto end = line.find(separator, start + 1);
-      return line.substr(start + 1, end - start - 1);
-    }
-  }
-
-  return std::string{"N/A"};
-}
+std::string System::OperatingSystem() { return LinuxParser::OperatingSystem(); }
 
 int System::RunningProcesses() { return LinuxParser::RunningProcesses(); }
 
