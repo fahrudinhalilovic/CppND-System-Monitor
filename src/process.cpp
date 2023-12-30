@@ -36,10 +36,10 @@ long int Process::UpTime() const {
 bool Process::operator<(Process const& other) const {
   if (CpuUtilization() != other.CpuUtilization()) {
     // sort them according to the CPU utilization
-    return CpuUtilization() < other.CpuUtilization();
+    return CpuUtilization() > other.CpuUtilization();
   } else if (Ram() != other.Ram()) {
     // then try to sort according to the RAM utilization
-    return Ram() < other.Ram();
+    return Ram() > other.Ram();
   } else {
     // use PID as a fallback option
     return Pid() < other.Pid();

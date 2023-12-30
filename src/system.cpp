@@ -32,7 +32,10 @@ System::System() {
 
 Processor& System::Cpu() { return cpu_; }
 
-std::vector<Process>& System::Processes() { return processes_; }
+std::vector<Process>& System::Processes() {
+  std::sort(std::begin(processes_), std::end(processes_));
+  return processes_;
+}
 
 std::string System::Kernel() { return LinuxParser::Kernel(); }
 

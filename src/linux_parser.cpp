@@ -139,7 +139,7 @@ long LinuxParser::ActiveJiffies(int pid) {
 
   std::ifstream input{statPath};
   if (!input) {
-    throw std::runtime_error{"There was en error while opening input stream!"};
+    return 0;
   }
 
   std::string line;
@@ -259,7 +259,7 @@ std::string parseProcessStatusFile(int pid, std::string property) {
                         LinuxParser::statusName};
   std::ifstream input{statusPath};
   if (!input) {
-    throw std::runtime_error{"There was en error while opening input stream!"};
+    return "";
   }
 
   std::string line;
@@ -322,7 +322,7 @@ long LinuxParser::UpTime(int pid) {
 
   std::ifstream input{upTimePath};
   if (!input) {
-    throw std::runtime_error{"There was en error while opening input stream!"};
+    return 0;
   }
 
   std::string line;
