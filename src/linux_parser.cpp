@@ -299,11 +299,13 @@ std::string parseProcessStatusFile(int pid, std::string property) {
 std::string LinuxParser::Ram(int pid) {
   const auto ramInKB = parseProcessStatusFile(pid, "VmSize:");
   if (ramInKB.empty()) {
-    return "0";
+    return "0.00";
   }
 
-  const auto ram = std::stoi(ramInKB);
-  return std::to_string(ram / 1024);
+  const auto ram = std::stof(ramInKB);
+  std::ostringstream output;
+  output << std::fixed << std::setprecision(2) << ram / 1024;
+  return output.str();
 }
 
 std::string LinuxParser::Uid(int pid) {
