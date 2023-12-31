@@ -37,10 +37,7 @@ std::string Process::Ram() { return LinuxParser::Ram(pid_); }
 
 std::string Process::User() { return LinuxParser::User(pid_); }
 
-long int Process::UpTime() {
-  const auto startTime = LinuxParser::UpTime(pid_);
-  return startTime / sysconf(_SC_CLK_TCK);
-}
+long int Process::UpTime() { return LinuxParser::UpTime(pid_); }
 
 bool Process::operator<(Process const& other) const {
   if (CpuUtilization() != other.CpuUtilization()) {

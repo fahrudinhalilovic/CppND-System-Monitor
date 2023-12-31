@@ -1,5 +1,7 @@
 #include "linux_parser.h"
 
+#include <unistd.h>
+
 #include <algorithm>
 #include <cassert>
 #include <fstream>
@@ -350,7 +352,9 @@ long LinuxParser::UpTime(int pid) {
     linestream >> val;
   }
 
-  long startTime;
-  linestream >> startTime;
-  return startTime;
+  long processStartTime;
+  linestream >> processStartTime;
+
+  const auto systemUpTime = UpTime();
+  return systemUpTime - (processStartTime / sysconf(_SC_CLK_TCK));
 }
