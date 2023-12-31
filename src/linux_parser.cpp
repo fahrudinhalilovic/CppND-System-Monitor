@@ -150,7 +150,6 @@ long LinuxParser::ActiveJiffies(int pid) {
   long sTime;
   long cuTime;
   long csTime;
-  long startTime;
 
   for (auto idx = 1u; idx <= 17; ++idx) {
     std::string val;
@@ -246,7 +245,7 @@ std::string LinuxParser::Command(int pid) {
   const auto cmdPath = proc / std::to_string(pid) / cmdName;
   std::ifstream input{cmdPath};
   if (!input) {
-    throw std::runtime_error{"There was en error while opening input stream!"};
+    return "";
   }
 
   std::string cmd;

@@ -20,6 +20,9 @@ class System {
   std::string OperatingSystem();
 
  private:
+  void AddProcesses();
+
+ private:
   Processor cpu_ = {};
   std::vector<Process> processes_ = {};
 };

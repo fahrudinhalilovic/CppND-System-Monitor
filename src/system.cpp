@@ -23,17 +23,13 @@ You need to properly format the uptime. Refer to the comments mentioned in
 format. cpp for formatting the uptime.
 */
 
-System::System() {
-  const auto pids = LinuxParser::Pids();
-  for (const auto& pid : pids) {
-    processes_.emplace_back(Process{pid});
-  }
-}
+System::System() { AddProcesses(); }
 
 Processor& System::Cpu() { return cpu_; }
 
 std::vector<Process>& System::Processes() {
-  std::sort(std::begin(processes_), std::end(processes_));
+  // refresh processes vector
+  AddProcesses();
   return processes_;
 }
 
@@ -48,3 +44,12 @@ int System::RunningProcesses() { return LinuxParser::RunningProcesses(); }
 int System::TotalProcesses() { return LinuxParser::TotalProcesses(); }
 
 long int System::UpTime() { return LinuxParser::UpTime(); }
+
+void System::AddProcesses() {
+  processes_.clear();
+  const auto pids = LinuxParser::Pids();
+  for (const auto& pid : pids) {
+    processes_.emplace_back(Process{pid});
+  }
+  std::sort(std::begin(processes_), std::end(processes_));
+}
