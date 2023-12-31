@@ -61,6 +61,10 @@ std::vector<int> LinuxParser::Pids() {
 float LinuxParser::MemoryUtilization() {
   const auto MemTotal{"MemTotal:"};
   const auto MemFree{"MemFree:"};
+  const auto Buffers{"Buffers:"};
+  const auto Cached{"Cached:"};
+  const auto Shmem{"Shmem:"};
+  const auto SReclaimable{"SReclaimable:"};
 
   std::ifstream input{memInfoPath};
   if (!input) {
@@ -70,6 +74,10 @@ float LinuxParser::MemoryUtilization() {
   std::string line;
   float memTotal = 0;
   float memFree = 0;
+  float buffers = 0;
+  float cached = 0;
+  float shmem = 0;
+  float sreclaimable = 0;
 
   while (std::getline(input, line)) {
     std::istringstream linestream{line};
@@ -80,10 +88,19 @@ float LinuxParser::MemoryUtilization() {
       memTotal = val;
     } else if (property == MemFree) {
       memFree = val;
+    } else if (property == Buffers) {
+      buffers = val;
+    } else if (property == Cached) {
+      cached = val;
+    } else if (property == Shmem) {
+      shmem = val;
+    } else if (property == SReclaimable) {
+      sreclaimable = val;
     }
   }
 
-  return memTotal - memFree;
+  const auto memCached = cached + sreclaimable - shmem;
+  return (memTotal - memFree - (buffers + memCached)) / memTotal;
 }
 
 long LinuxParser::UpTime() {
