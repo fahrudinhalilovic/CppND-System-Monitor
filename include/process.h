@@ -21,7 +21,7 @@ class Process {
  private:
   int pid_;
   float prevTotalTime_;
-  float prevSeconds_;
+  float prevUpTime_;
   float cpuUtilization_;
 };
 

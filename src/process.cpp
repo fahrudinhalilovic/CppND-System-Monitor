@@ -9,22 +9,25 @@
 
 #include "linux_parser.h"
 
-Process::Process(int pid) : pid_{pid}, prevTotalTime_{0}, prevSeconds_{0} {
-  CalculateCpuUtilization();
-}
+Process::Process(int pid) : pid_{pid}, prevTotalTime_{0}, prevUpTime_{0} {}
 
 int Process::Pid() const { return pid_; }
 
 void Process::CalculateCpuUtilization() {
   const float currTotalTime =
-      LinuxParser::ActiveJiffies(pid_) / sysconf(_SC_CLK_TCK);
-  const float currSeconds = LinuxParser::UpTime() - UpTime();
+      static_cast<float>(LinuxParser::ActiveJiffies(pid_)) /
+      static_cast<float>(sysconf(_SC_CLK_TCK));
+  const float currUpTime = UpTime();
 
-  cpuUtilization_ =
-      (currTotalTime - prevTotalTime_) / (currSeconds - prevSeconds_);
+  if (currUpTime - prevUpTime_ < 0.00001) {
+    cpuUtilization_ = 0;
+  } else {
+    cpuUtilization_ =
+        (currTotalTime - prevTotalTime_) / (currUpTime - prevUpTime_);
+  }
 
   prevTotalTime_ = currTotalTime;
-  prevSeconds_ = currSeconds;
+  prevUpTime_ = currUpTime;
 }
 
 float Process::CpuUtilization() { return cpuUtilization_; }

@@ -23,13 +23,48 @@ You need to properly format the uptime. Refer to the comments mentioned in
 format. cpp for formatting the uptime.
 */
 
-System::System() { AddProcesses(); }
-
 Processor& System::Cpu() { return cpu_; }
 
 std::vector<Process>& System::Processes() {
-  // refresh processes vector
-  AddProcesses();
+  // obtain all processes
+  const auto pids = LinuxParser::Pids();
+
+  // add new processes
+  for (const auto& pid : pids) {
+    auto wasCreated{false};
+    for (const auto& p : processes_) {
+      if (pid == p.Pid()) {
+        wasCreated = true;
+        break;
+      }
+    }
+
+    if (!wasCreated) {
+      processes_.emplace_back(Process{pid});
+    }
+  }
+
+  // remove finished processes
+  for (auto idx = 0; idx < processes_.size(); ++idx) {
+    auto isActive{false};
+    for (const auto& pid : pids) {
+      if (processes_[idx].Pid() == pid) {
+        isActive = true;
+        break;
+      }
+    }
+
+    if (!isActive) {
+      processes_.erase(std::begin(processes_) + idx);
+    }
+  }
+
+  // refresh CPU utilization values
+  for (auto& p : processes_) {
+    p.CalculateCpuUtilization();
+  }
+
+  std::sort(std::begin(processes_), std::end(processes_));
   return processes_;
 }
 
@@ -44,12 +79,3 @@ int System::RunningProcesses() { return LinuxParser::RunningProcesses(); }
 int System::TotalProcesses() { return LinuxParser::TotalProcesses(); }
 
 long int System::UpTime() { return LinuxParser::UpTime(); }
-
-void System::AddProcesses() {
-  processes_.clear();
-  const auto pids = LinuxParser::Pids();
-  for (const auto& pid : pids) {
-    processes_.emplace_back(Process{pid});
-  }
-  std::sort(std::begin(processes_), std::end(processes_));
-}
