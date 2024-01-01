@@ -45,7 +45,7 @@ std::vector<Process>& System::Processes() {
   }
 
   // remove finished processes
-  for (auto idx = 0; idx < processes_.size(); ++idx) {
+  for (auto idx = 0u; idx < processes_.size(); ++idx) {
     auto isActive{false};
     for (const auto& pid : pids) {
       if (processes_[idx].Pid() == pid) {
